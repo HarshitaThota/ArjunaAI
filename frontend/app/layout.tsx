@@ -1,11 +1,18 @@
-import * as React from "react";
+import "./global.css";
+import type { Metadata } from "next";
 
-export const metadata = { title: "ArjunaAI", description: "Bhagavad Gita Q&A" };
+export const metadata: Metadata = {
+  title: "ArjunaAI",
+  description: "Bhagavad Gita grounded search with citations",
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      {/* If you add Tailwind later, ensure globals.css is imported here */}
       <body>{children}</body>
     </html>
   );

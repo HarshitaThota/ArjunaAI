@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* body {
+  @apply bg-gradient-to-br from-peacockBlue via-peacockGreen to-gold text-white min-h-screen flex items-center justify-center;
+  font-family: 'Inter', sans-serif;
+} */
+
+:root{
+  --peacock-1:#001f3f;
+  --peacock-2:#0a3d62;
+  --peacock-3:#2e86de;
+  --peacock-4:#00b894;
+  --peacock-5:#ffd166;
+}
+
+/* Soft peacock gradient */
+body{
+  background:
+    radial-gradient(1200px 800px at 10% -10%, rgba(0,184,148,0.18), transparent 60%),
+    radial-gradient(900px 500px at 110% 0%, rgba(46,134,222,0.16), transparent 60%),
+    linear-gradient(160deg, var(--peacock-1) 0%, var(--peacock-2) 45%, #082533 100%);
+  color:#e8f1f2;
+}
+
+/* Subtle feather overlay */
+.peacock-feathers{
+  position: fixed; inset: 0; pointer-events: none; opacity: .15;
+  background-image:
+    radial-gradient(circle at 20px 20px, var(--peacock-5) 2px, transparent 3px),
+    radial-gradient(circle at 20px 20px, rgba(179, 72, 72, 0.1) 0, rgba(255,255,255,0) 18px),
+    radial-gradient(circle at 20px 20px, rgba(0,184,148,.15) 0, rgba(0,184,148,0) 24px);
+  background-size: 60px 60px, 120px 120px, 160px 160px;
+  mix-blend-mode: overlay;
+}
+
+/* Peacock-themed background: layered gradients for subtle feather vibe */
+.peacock-bg {
+  background:
+    radial-gradient(1800px 900px at 100% -20%, rgba(30, 58, 138, 0.35), transparent 70%),
+    radial-gradient(1600px 800px at -20% 20%, rgba(16, 185, 129, 0.35), transparent 70%),
+    linear-gradient(120deg, #0f172a 0%, #0b1226 50%, #07101e 100%);
+  background-attachment: fixed;
+}
+
+
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
