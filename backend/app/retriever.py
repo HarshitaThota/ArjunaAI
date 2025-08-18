@@ -1,144 +1,118 @@
-import os
+import os, re
 from typing import List, Dict, Any
 from dotenv import load_dotenv; load_dotenv()
 from pinecone import Pinecone
 from openai import OpenAI
-import cohere
 
 INDEX = os.getenv("PINECONE_INDEX", "gita-rag")
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index(INDEX)
-
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-co = cohere.Client(os.getenv("COHERE_API_KEY")) if os.getenv("COHERE_API_KEY") else None
 
 SYSTEM = (
-    "You answer using the Bhagavad Gita only. "
-    "First give a short, neutral 2–3 sentence answer. "
-    "Then list 2–3 supporting verses with chapter:verse in bullets. "
-    "Do not invent quotes. If unsure, say so."
+    "You answer using only the Bhagavad Gita corpus provided in the context."
+    " Write a DIRECT ANSWER in AT MOST TWO SENTENCES. No more."
+    " Do not invent quotes or verses. If unsure or off-topic, say so in one sentence."
 )
 
 ANSWER_TMPL = """Question: {q}
-Relevant verses:
+Relevant verses (chapter:verse — text):
 {ctx}
 
-Write a concise answer in 2–3 sentences.
-Then add 2–3 bullet points: 'Chapter X:Verse Y — <short excerpt>'. Keep quotes verbatim."""
+Rules:
+- Answer in AT MOST TWO SENTENCES (strict).
+- Do not include Sanskrit in the answer body.
+- If no clearly relevant verse exists, write the two-sentence answer only (no verse section).
+Now write the answer:"""
 
-def _dense_search(q: str, k: int = 24) -> List[Dict[str, Any]]:
+def _dense_search(q: str, k: int = 20) -> List[Dict[str, Any]]:
     emb = openai_client.embeddings.create(model="text-embedding-3-large", input=q).data[0].embedding
     res = index.query(vector=emb, top_k=k, include_metadata=True)
     docs = []
     for m in res.matches:
         md = m.metadata or {}
-        text = md.get("eng_meaning") or md.get("transliteration") or ""
         docs.append({
             "id": m.id,
-            "score": m.score,
+            "score": float(m.score or 0.0),
             "chapter": md.get("chapter",""),
             "verse": md.get("verse",""),
-            "text": text
+            "english": md.get("eng_meaning") or "",
+            "transliteration": md.get("transliteration") or "",
+            "sanskrit": md.get("shloka_sanskrit") or "",
+            "text": (md.get("eng_meaning") or md.get("transliteration") or "")
         })
     return docs
 
-def _rerank(q: str, docs: list[dict], top_n: int = 8) -> list[dict]:
-    # No Cohere key? fall back to dense scores
-    if not os.getenv("COHERE_API_KEY"):
-        return sorted(docs, key=lambda d: d["score"], reverse=True)[:top_n]
-    try:
-        rr = co.rerank(
-            model="rerank-english-v3.0",
-            query=q,
-            documents=[d["text"] for d in docs],
-            top_n=top_n,
-        )
-        return [docs[r.index] for r in rr.results]
-    except Exception as e:
-        # Any error (401, network, etc.) -> safe fallback
-        print(f"[rerank] falling back due to: {e}")
-        return sorted(docs, key=lambda d: d["score"], reverse=True)[:top_n]
-
-
-def _exact_verse_lookup(q: str) -> dict | None:
-    import re
+def _exact_verse_lookup(q: str) -> Dict[str, Any] | None:
     m = re.match(r"^\s*(\d{1,2})\s*:\s*(\d{1,3})\s*$", q)
-    if not m:
-        return None
+    if not m: return None
     vid = f"{int(m.group(1))}:{int(m.group(2))}"
     out = index.fetch(ids=[vid])
-
-    # Newer clients: out.vectors is a dict[str, Vector]
-    rec = None
-    if hasattr(out, "vectors"):
-        # Could be a dict, or an object with .get
-        vectors = out.vectors
-        if isinstance(vectors, dict):
-            rec = vectors.get(vid)
-        else:
-            try:
-                rec = vectors[vid]
-            except Exception:
-                pass
-    # Fallback if fetch returns a plain dict-like
-    if rec is None and isinstance(out, dict):
-        rec = out.get("vectors", {}).get(vid)
-
-    if rec is None:
-        return None
-
-    # Access metadata safely (object or dict)
-    md = getattr(rec, "metadata", None)
-    if md is None and isinstance(rec, dict):
-        md = rec.get("metadata", {})
-    if md is None:
-        md = {}
-
-    txt = md.get("eng_meaning") or md.get("transliteration") or ""
+    rec = (getattr(out, "vectors", None) or {}).get(vid)
+    if not rec: return None
+    md = rec.get("metadata", {}) if isinstance(rec, dict) else getattr(rec, "metadata", {}) or {}
     return {
         "id": vid,
-        "chapter": md.get("chapter", ""),
-        "verse": md.get("verse", ""),
-        "text": txt
+        "chapter": md.get("chapter",""),
+        "verse": md.get("verse",""),
+        "english": md.get("eng_meaning") or "",
+        "transliteration": md.get("transliteration") or "",
+        "sanskrit": md.get("shloka_sanskrit") or ""
     }
 
-async def answer_question(q: str, top_k: int = 24, top_n: int = 8) -> Dict[str, Any]:
-    # 0) exact verse short-circuit
+def _two_sentences_max(text: str) -> str:
+    # hard-stop after two sentences
+    parts = re.split(r'(?<=[.!?])\s+', text.strip())
+    return " ".join(parts[:2]).strip()
+
+async def answer_question(q: str, top_k: int = 20, top_n: int = 5) -> Dict[str, Any]:
+    # 0) exact verse mode
     exact = _exact_verse_lookup(q)
     if exact:
+        # Just present that verse; summary can mention it
+        summary = f"Verse {exact['chapter']}:{exact['verse']} from the Bhagavad Gita."
         return {
-            "answer": f"Verse {exact['id']} from the Bhagavad Gita:",
-            "verses": [exact],
+            "summary": summary,
+            "verses": [exact],              # include english + transliteration; UI can reveal sanskrit
             "confidence": 0.95,
-            "notes": "Exact-verse lookup."
+            "notes": "Exact-verse lookup"
         }
 
-    # 1) retrieve
+    # 1) retrieve (no rerank)
     docs = _dense_search(q, k=top_k)
-    top = _rerank(q, docs, top_n=top_n)
+    top = sorted(docs, key=lambda d: d["score"], reverse=True)[:top_n]
 
-    # 2) build context string
-    ctx_lines = [f"- {t['id']}: {t['text']}" for t in top]
-    ctx = "\n".join(ctx_lines) if ctx_lines else "(no relevant verses found)"
+    # 2) build context for LLM
+    ctx = "\n".join([f"- {t['id']}: {t['text']}" for t in top]) if top else "(none)"
 
-    # 3) LLM compose
+    # 3) compose answer (two sentences enforced)
     comp = openai_client.chat.completions.create(
         model=os.getenv("OPENAI_CHAT_MODEL","gpt-4o-mini"),
-        messages=[
-            {"role":"system","content": SYSTEM},
-            {"role":"user","content": ANSWER_TMPL.format(q=q, ctx=ctx)}
-        ]
+        messages=[{"role":"system","content": SYSTEM},
+                  {"role":"user","content": ANSWER_TMPL.format(q=q, ctx=ctx)}]
     )
-    answer = comp.choices[0].message.content
+    summary = _two_sentences_max(comp.choices[0].message.content or "")
 
-    # 4) basic confidence (simple, transparent)
-    import statistics as stats
-    dense_scores = [d["score"] for d in top] or [0.0]
-    conf = min(0.99, max(0.3, (stats.mean(dense_scores))))
+    # 4) decide if verses should be returned
+    # if the best similarity is low, don't return verses
+    best = top[0]["score"] if top else 0.0
+    VERSE_SCORE_THRESHOLD = 0.30  # adjust if needed (cosine similarity scale)
+    verses = []
+    if best >= VERSE_SCORE_THRESHOLD:
+        # return only the top 1–3 distinct verses
+        for t in top[:3]:
+            verses.append({
+                "id": t["id"],
+                "chapter": t["chapter"],
+                "verse": t["verse"],
+                "english": t["english"],
+                "transliteration": t["transliteration"],
+                "sanskrit": t["sanskrit"]
+            })
 
     return {
-        "answer": answer,
-        "verses": top,
-        "confidence": conf,
-        "notes": "Retrieved via embeddings, reranked (if enabled)."
+        "summary": summary,
+        "verses": verses,         
+        "confidence": float(best),
+        "notes": "Dense retrieval only; no rerank."
     }
