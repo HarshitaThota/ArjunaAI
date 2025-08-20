@@ -56,16 +56,16 @@ cd ArjunaAI
 
 Copy .env.example to .env and fill in your keys:
 
-OPENAI_API_KEY=your-openai-key
-PINECONE_API_KEY=your-pinecone-key
-PINECONE_INDEX=gita-rag
-NEXT_PUBLIC_BACKEND_URL=http://localhost:8000/ask
+- OPENAI_API_KEY=your-openai-key 
+- PINECONE_API_KEY=your-pinecone-key 
+- PINECONE_INDEX=gita-rag 
+- NEXT_PUBLIC_BACKEND_URL=http://localhost:8000/ask
 
 4. Index the Dataset (one-time)
 
-Ensure your Bhagwad_Gita.csv is in backend/app/data/, then run:
+    Ensure your Bhagwad_Gita.csv is in backend/app/data/, then run:
 
-docker compose run --rm backend python app/indexer.py
+    docker compose run --rm backend python app/indexer.py
 
 5. Run the Application
 
@@ -121,11 +121,6 @@ Next.js + Tailwind CSS — Interactive frontend with a clean, peacock-themed UI.
 
 Docker — Containers for backend and frontend so you can run everything without local installs.
 
-Currently not used: LangChain, Langfuse, RAGAS, pytest.
-Nice future adds:
-• LangChain to modularize retrieval/rerank chains
-• Langfuse for tracing & prompt/version analytics
-• RAGAS + pytest for automated evals and regression tests
 
 ## Credits
 
