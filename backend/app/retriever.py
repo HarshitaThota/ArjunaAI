@@ -11,7 +11,8 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SYSTEM = (
     "You answer using only the Bhagavad Gita corpus provided in the context."
-    " Write a DIRECT ANSWER in AT MOST TWO SENTENCES. No more."
+    " Write a DIRECT ANSWER in AT MOST 4 SENTENCES. No more."
+    "Try to give a related verse existing in the context."
     " Do not invent quotes or verses. If unsure or off-topic, say so in one sentence."
 )
 
@@ -20,9 +21,9 @@ Relevant verses (chapter:verse — text):
 {ctx}
 
 Rules:
-- Answer in AT MOST TWO SENTENCES (strict).
+- Answer in AT MOST 4 SENTENCES (strict).
 - Do not include Sanskrit in the answer body.
-- If no clearly relevant verse exists, write the two-sentence answer only (no verse section).
+- Try to find a relevant verse, but if none exist, write the 4-sentence answer only (no verse section).
 Now write the answer:"""
 
 def _dense_search(q: str, k: int = 20) -> List[Dict[str, Any]]:
@@ -60,10 +61,10 @@ def _exact_verse_lookup(q: str) -> Dict[str, Any] | None:
         "sanskrit": md.get("shloka_sanskrit") or ""
     }
 
-def _two_sentences_max(text: str) -> str:
-    # hard-stop after two sentences
+def _four_sentences_max(text: str) -> str:
+    # hard-stop after four sentences
     parts = re.split(r'(?<=[.!?])\s+', text.strip())
-    return " ".join(parts[:2]).strip()
+    return " ".join(parts[:4]).strip()
 
 async def answer_question(q: str, top_k: int = 20, top_n: int = 5) -> Dict[str, Any]:
     # 0) exact verse mode
@@ -78,28 +79,27 @@ async def answer_question(q: str, top_k: int = 20, top_n: int = 5) -> Dict[str, 
             "notes": "Exact-verse lookup"
         }
 
-    # 1) retrieve (no rerank)
+    # 1) retrieves (dense no rerank)
     docs = _dense_search(q, k=top_k)
     top = sorted(docs, key=lambda d: d["score"], reverse=True)[:top_n]
 
-    # 2) build context for LLM
+    # 2) builds context for LLM
     ctx = "\n".join([f"- {t['id']}: {t['text']}" for t in top]) if top else "(none)"
 
-    # 3) compose answer (two sentences enforced)
+    # 3) composes answer 
     comp = openai_client.chat.completions.create(
         model=os.getenv("OPENAI_CHAT_MODEL","gpt-4o-mini"),
         messages=[{"role":"system","content": SYSTEM},
                   {"role":"user","content": ANSWER_TMPL.format(q=q, ctx=ctx)}]
     )
-    summary = _two_sentences_max(comp.choices[0].message.content or "")
+    summary = _four_sentences_max(comp.choices[0].message.content or "")
 
-    # 4) decide if verses should be returned
-    # if the best similarity is low, don't return verses
+    # 4) decide if verses should be returned (if the best similarity is low, don't return verses)
     best = top[0]["score"] if top else 0.0
-    VERSE_SCORE_THRESHOLD = 0.30  # adjust if needed (cosine similarity scale)
+    VERSE_SCORE_THRESHOLD = 0.30  # I can adjust if needed (cosine similarity scale)
     verses = []
     if best >= VERSE_SCORE_THRESHOLD:
-        # return only the top 1–3 distinct verses
+        # returns only the top 1–3 distinct verses
         for t in top[:3]:
             verses.append({
                 "id": t["id"],

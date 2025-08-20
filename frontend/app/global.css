@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* body {
-  @apply bg-gradient-to-br from-peacockBlue via-peacockGreen to-gold text-white min-h-screen flex items-center justify-center;
-  font-family: 'Inter', sans-serif;
-} */
 
 :root{
   --peacock-1:#001f3f;
@@ -15,7 +11,6 @@
   --peacock-5:#ffd166;
 }
 
-/* Soft peacock gradient */
 body{
   background:
     radial-gradient(1200px 800px at 10% -10%, rgba(0,184,148,0.18), transparent 60%),
@@ -24,7 +19,7 @@ body{
   color:#e8f1f2;
 }
 
-/* Subtle feather overlay */
+
 .peacock-feathers{
   position: fixed; inset: 0; pointer-events: none; opacity: .15;
   background-image:
@@ -35,7 +30,6 @@ body{
   mix-blend-mode: overlay;
 }
 
-/* Peacock-themed background: layered gradients for subtle feather vibe */
 .peacock-bg {
   background:
     radial-gradient(1800px 900px at 100% -20%, rgba(30, 58, 138, 0.35), transparent 70%),

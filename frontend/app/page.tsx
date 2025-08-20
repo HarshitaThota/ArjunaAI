@@ -135,8 +135,6 @@ export default function Page() {
               </ul>
             </section>
           )}
-
-          {/* (you removed the “Try …” prompt; we’ll keep the page clean) */}
         </div>
       </main>
     </div>
