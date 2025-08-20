@@ -1,11 +1,7 @@
 fastapi
 uvicorn[standard]
-langchain
 openai
-cohere
 pinecone>=5.0.0
 pandas
 pydantic>=2
 python-dotenv
-tiktoken
-langfuse

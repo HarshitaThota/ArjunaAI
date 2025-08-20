@@ -2,6 +2,8 @@
 
 An AI-powered Bhagavad Gita assistant built with FastAPI, Next.js, Pinecone, and OpenAI. ArjunaAI allows users to ask questions in natural language and receive concise, evidence-based answers grounded in verses from the Bhagavad Gita.
 
+![Current UI](UI.png)
+
 ## Features
 
 - Verse-Aware Retrieval (RAG style):
