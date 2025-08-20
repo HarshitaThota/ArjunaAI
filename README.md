@@ -115,7 +115,7 @@ OpenAI (GPT-4o / o4-mini) — Generates the two-sentence answer from retrieved v
 
 OpenAI Embeddings (text-embedding-3-large) — Converts verses and queries into vectors for semantic search.
 
-Pinecone — Vector database to store verse embeddings and perform fast similarity search.
+Pinecone (hosted on AWS): Serves as the vector database for semantic search, storing dense embeddings of Bhagavad Gita verses for efficient similarity search and retrieval.
 
 FastAPI — Backend service exposing /ask and running the retrieval + generation pipeline.
 
