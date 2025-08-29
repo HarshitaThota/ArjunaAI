@@ -74,8 +74,8 @@ Copy .env.example to .env and fill in your keys:
 - Option A – Docker (prod build):
 
     docker compose up --build
-    # Frontend: http://localhost:3000
-    # Backend:  http://localhost:8000/health
+    - Frontend: http://localhost:3000
+    - Backend:  http://localhost:8000/health
 
 
 - Option B – Dev (hot reload):
